@@ -24,9 +24,22 @@ import {
   Pause,
   Radio,
   ArrowRight,
+  CheckCircle2,
+  ArrowLeftRight,
+  Siren,
+  ArrowDownRight,
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+  CartesianGrid,
+} from "recharts";
 
-type Screen = "dashboard" | "cluster" | "detail" | "reports";
+type Screen = "dashboard" | "cluster" | "detail" | "reports" | "impact";
 type Mode   = "landing" | "app";
 
 // ── Data ─────────────────────────────────────────────────────────────────────
@@ -92,6 +105,18 @@ const AGENT_LOAD = [
   { name: "James P.", initials: "JP", count: 2, color: "#F59E0B" },
 ];
 
+const RESOLUTION_TREND = [
+  { week: "W1", rate: 12.4, flagged: 7, silent: 7, reopened: 2 },
+  { week: "W2", rate: 9.1,  flagged: 5, silent: 3, reopened: 4 },
+  { week: "W3", rate: 6.3,  flagged: 3, silent: 1, reopened: 6 },
+];
+
+const IMPACT_STATS = [
+  { label: "False closures caught",  value: "23",  sub: "AI-flagged this week",  color: "#4F6AF5", bg: "#EEF1FF" },
+  { label: "Confirmed by your team", value: "18",  sub: "78% verified true",      color: "#10B981", bg: "#ECFDF5" },
+  { label: "Est. savings",           value: "$6.4K", sub: "Root causes fixed",    color: "#F59E0B", bg: "#FFFBEB" },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function confidenceStyle(v: number) {
@@ -105,6 +130,7 @@ function confidenceStyle(v: number) {
 function Sidebar({ screen, setScreen, onBack }: { screen: Screen; setScreen: (s: Screen) => void; onBack: () => void }) {
   const items = [
     { id: "dashboard" as Screen, label: "Dashboard",    Icon: LayoutDashboard },
+    { id: "impact"    as Screen, label: "Impact",       Icon: TrendingUp      },
     { id: "cluster"   as Screen, label: "Cluster Map",  Icon: Network         },
     { id: "detail"    as Screen, label: "Ticket Detail",Icon: FileText        },
     { id: "reports"   as Screen, label: "Reports",      Icon: BarChart3       },
@@ -164,6 +190,7 @@ function Sidebar({ screen, setScreen, onBack }: { screen: Screen; setScreen: (s:
 function TopBar({ screen, onBack }: { screen: Screen; onBack: () => void }) {
   const crumb: Record<Screen, string> = {
     dashboard: "Dashboard",
+    impact:    "Impact · Before / After",
     cluster:   "Cluster Map",
     detail:    "Ticket Detail · TK-2891",
     reports:   "Reports",
@@ -231,6 +258,24 @@ function DashboardScreen({ setScreen }: { setScreen: (s: Screen) => void }) {
           ))}
         </div>
 
+        {/* Silent drop-off banner */}
+        <div className="flex items-center gap-4 rounded-xl border border-red-100 bg-gradient-to-r from-red-50 via-orange-50 to-transparent px-5 py-4">
+          <div className="w-9 h-9 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
+            <ArrowDownRight className="w-4 h-4 text-red-500" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[13px] font-semibold text-[#1A1D2E]">
+              <span className="text-red-500 font-bold">7 silent drop-offs</span> this week — customers stopped replying without confirming the fix.
+            </div>
+            <div className="text-[11px] text-[#6B7280] mt-0.5">
+              Only 2 tickets were re-opened on their own. The other 5 quietly stayed &quot;resolved&quot;. Estimated 40 hrs of wasted agent time.
+            </div>
+          </div>
+          <button onClick={() => setScreen("impact")} className="flex-shrink-0 flex items-center gap-1.5 bg-white border border-red-200 text-red-500 text-[12px] font-semibold px-3.5 py-2 rounded-lg hover:bg-red-50 transition-all">
+            See the impact <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
         <div className="bg-white rounded-xl border border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)] overflow-hidden">
           <div className="px-6 py-4 border-b border-black/[0.05] flex items-center justify-between">
             <div>
@@ -292,6 +337,143 @@ function DashboardScreen({ setScreen }: { setScreen: (s: Screen) => void }) {
               </tbody>
             </table>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Screen 1.5: Impact (Before / After) ───────────────────────────────────────
+
+function ImpactScreen() {
+  const [view, setView] = useState<"before" | "after">("after");
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="p-6 space-y-5 max-w-[1400px]">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-[22px] font-bold text-[#1A1D2E] leading-none">Why Second Read exists</h1>
+            <p className="text-[#9CA3AF] text-[12px] mt-1.5">The silent problem your dashboard can&apos;t see — and what changes when you audit closures.</p>
+          </div>
+          <div className="flex items-center gap-1 bg-[#F5F6FA] border border-[#E8EAED] rounded-xl p-1">
+            <button onClick={() => setView("before")} className={`px-3.5 py-[7px] rounded-lg text-[12px] font-semibold transition-all ${view === "before" ? "bg-white text-[#1A1D2E] shadow-[0_1px_3px_rgba(0,0,0,0.10)]" : "text-[#9CA3AF] hover:text-[#6B7280]"}`}>Before</button>
+            <button onClick={() => setView("after")} className={`px-3.5 py-[7px] rounded-lg text-[12px] font-semibold transition-all ${view === "after" ? "bg-white text-[#1A1D2E] shadow-[0_1px_3px_rgba(0,0,0,0.10)]" : "text-[#9CA3AF] hover:text-[#6B7280]"}`}>With Second Read</button>
+          </div>
+        </div>
+
+        {/* Before / After panels */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Before */}
+          <div className={`rounded-2xl border p-6 transition-all duration-300 ${view === "before" ? "opacity-100 scale-[1.00]" : "opacity-45 scale-[0.99]"} bg-white border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)]`}>
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#FEF2F2] flex items-center justify-center">
+                <ArrowDownRight className="w-3.5 h-3.5 text-red-500" />
+              </div>
+              <span className="text-[13px] font-bold text-[#1A1D2E]">Before Second Read</span>
+              <span className="text-[9px] bg-red-50 text-red-500 border border-red-200 px-2 py-[3px] rounded-full font-bold ml-auto uppercase tracking-wide">This week</span>
+            </div>
+            <div className="text-[44px] font-bold text-[#1A1D2E] leading-none tracking-tight">7<span className="text-[20px] font-medium text-[#9CA3AF] ml-1">silent drop-offs</span></div>
+            <p className="text-[13px] text-[#6B7280] leading-relaxed mt-3 mb-5">
+              Customers stopped replying without ever confirming the fix. Their tickets were marked <strong className="text-[#1A1D2E]">Resolved</strong> — and the root cause was never investigated.
+            </p>
+            <div className="space-y-2.5">
+              {[
+                { label: "Marked resolved", value: "23", color: "text-[#1A1D2E]" },
+                { label: "Silently failed", value: "7",  color: "text-red-500" },
+                { label: "Re-opened on their own", value: "2", color: "text-[#1A1D2E]" },
+                { label: "Est. hours wasted", value: "40 hrs", color: "text-[#1A1D2E]" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-center justify-between py-2 border-b border-[#F1F3F8] last:border-0">
+                  <span className="text-[12px] text-[#6B7280]">{label}</span>
+                  <span className={`text-[14px] font-bold ${color}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* After */}
+          <div className={`rounded-2xl border p-6 transition-all duration-300 ${view === "after" ? "opacity-100 scale-[1.00]" : "opacity-45 scale-[0.99]"} bg-white border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)]`}>
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-7 h-7 rounded-lg bg-[#ECFDF5] flex items-center justify-center">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+              </div>
+              <span className="text-[13px] font-bold text-[#1A1D2E]">With Second Read</span>
+              <span className="text-[9px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-2 py-[3px] rounded-full font-bold ml-auto uppercase tracking-wide">3 weeks in</span>
+            </div>
+            <div className="text-[44px] font-bold text-[#1A1D2E] leading-none tracking-tight">−50<span className="text-[20px] font-medium text-[#9CA3AF] ml-1">% silent drop-offs</span></div>
+            <p className="text-[13px] text-[#6B7280] leading-relaxed mt-3 mb-5">
+              Flags catch the false closures. Teams confirm the real ones, reopen the ticket, and fix the root cause — before the customer gives up for good.
+            </p>
+            <div className="space-y-2.5">
+              {[
+                { label: "Flags confirmed", value: "18", color: "text-[#1A1D2E]" },
+                { label: "Root causes fixed", value: "6", color: "text-emerald-600" },
+                { label: "Est. savings", value: "$6.4K", color: "text-emerald-600" },
+                { label: "False-alarm rate", value: "14%", color: "text-[#1A1D2E]" },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="flex items-center justify-between py-2 border-b border-[#F1F3F8] last:border-0">
+                  <span className="text-[12px] text-[#6B7280]">{label}</span>
+                  <span className={`text-[14px] font-bold ${color}`}>{value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Trend chart */}
+        <div className="bg-white rounded-xl border border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-6">
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <h2 className="text-[#1A1D2E] font-semibold text-[14px]">False-resolution rate, week over week</h2>
+              <p className="text-[#9CA3AF] text-[12px] mt-px">Share of resolved tickets that were actually unresolved — declining as flags get confirmed</p>
+            </div>
+            <div className="text-right">
+              <div className="text-[22px] font-bold text-emerald-600 leading-none">−49%</div>
+              <div className="text-[10px] text-[#9CA3AF] mt-0.5">12.4% → 6.3%</div>
+            </div>
+          </div>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={RESOLUTION_TREND} margin={{ top: 6, right: 8, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="trendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#4F6AF5" stopOpacity={0.22} />
+                    <stop offset="100%" stopColor="#4F6AF5" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F3F8" vertical={false} />
+                <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} domain={[0, 14]} unit="%" />
+                <Tooltip
+                  contentStyle={{ borderRadius: 10, border: "1px solid #E8EAED", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", fontSize: 12 }}
+                  formatter={(v: number) => [`${v}%`, "False-resolution rate"]}
+                />
+                <Area type="monotone" dataKey="rate" stroke="#4F6AF5" strokeWidth={2.5} fill="url(#trendFill)" dot={{ r: 4, fill: "#4F6AF5", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 5 }} />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex items-center gap-2 mt-3 text-[11px] text-[#C4C8D4]">
+            <Sparkles className="w-[11px] h-[11px] text-[#7C5CFC]" />
+            Every percentage point of false resolutions saved ≈ 3.5 hrs of agent time per week.
+          </div>
+        </div>
+
+        {/* Impact stat strip */}
+        <div className="grid grid-cols-3 gap-4">
+          {IMPACT_STATS.map(({ label, value, sub, color, bg }) => (
+            <div key={label} className="bg-white rounded-xl p-5 border border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+              <div className="flex items-center gap-2.5 mb-4">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center`} style={{ background: bg }}>
+                  <TrendingUp className="w-4 h-4" style={{ color }} />
+                </div>
+                <span className="text-[#6B7280] text-[12px] font-medium">{label}</span>
+              </div>
+              <div className="text-[30px] font-bold text-[#1A1D2E] leading-none">{value}</div>
+              <div className="text-[11px] mt-2 text-[#9CA3AF]">{sub}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -401,6 +583,7 @@ function ClusterMapScreen() {
 function TicketDetailScreen() {
   const [voted, setVoted] = useState<"up" | "down" | null>(null);
   const [briefingOpen, setBriefingOpen] = useState(false);
+  const [action, setAction] = useState<"reopen" | "escalate" | null>(null);
 
   return (
     <div className="h-full flex overflow-hidden">
@@ -504,6 +687,24 @@ function TicketDetailScreen() {
               <ThumbsDown className="w-[13px] h-[13px]" />Dismiss
             </button>
           </div>
+          <div className="flex gap-2">
+            <button onClick={() => setAction(a => a === "reopen" ? null : "reopen")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-[12px] font-semibold transition-all ${action === "reopen" ? "bg-[#EEF1FF] border-[#4F6AF5]/40 text-[#4F6AF5]" : "border-black/[0.08] text-[#6B7280] hover:border-[#4F6AF5]/40 hover:text-[#4F6AF5] hover:bg-[#EEF1FF]"}`}>
+              <RefreshCw className="w-[13px] h-[13px]" />{action === "reopen" ? "Reopened ✓" : "Auto-reopen"}
+            </button>
+            <button onClick={() => setAction(a => a === "escalate" ? null : "escalate")} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg border text-[12px] font-semibold transition-all ${action === "escalate" ? "bg-purple-50 border-purple-300 text-purple-600" : "border-black/[0.08] text-[#6B7280] hover:border-purple-300 hover:text-purple-500 hover:bg-purple-50"}`}>
+              <Siren className="w-[13px] h-[13px]" />{action === "escalate" ? "Escalated ✓" : "Escalate"}
+            </button>
+          </div>
+          {action && (
+            <div className="bg-[#F8F9FB] rounded-xl border border-black/[0.07] p-3.5 flex items-start gap-2.5">
+              {action === "reopen" ? <RefreshCw className="w-[13px] h-[13px] text-[#4F6AF5] flex-shrink-0 mt-px" /> : <Siren className="w-[13px] h-[13px] text-purple-500 flex-shrink-0 mt-px" />}
+              <p className="text-[11px] text-[#4B5563] leading-relaxed">
+                {action === "reopen"
+                  ? <>Ticket <strong className="text-[#1A1D2E]">TK-2891 reopened</strong> and routed back to Sarah K. with the AI reasoning trail attached — root cause (link expiry timing) now queued for investigation.</>
+                  : <>Ticket escalated to <strong className="text-[#1A1D2E]">senior engineer (Auth squad)</strong> with cluster context: 13 matching tickets in 3 weeks.</>}
+              </p>
+            </div>
+          )}
           <button onClick={() => setBriefingOpen(b => !b)} className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-[13px] font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] shadow-[0_4px_12px_rgba(79,106,245,0.3)]" style={{ background: "linear-gradient(135deg, #4F6AF5 0%, #7C5CFC 100%)" }}>
             <Sparkles className="w-[14px] h-[14px]" />{briefingOpen ? "Briefing generated ✓" : "Generate manager briefing"}
           </button>
@@ -581,6 +782,40 @@ function ReportsScreen({ setScreen }: { setScreen: (s: Screen) => void }) {
           <div className="border-t border-white/[0.07] px-8 py-3 flex items-center gap-2">
             <Radio className="w-[10px] h-[10px] text-white/25 flex-shrink-0" />
             <span className="text-[11px] text-white/25">Audit ran continuously · Aug 11 00:00 – Aug 18 23:59 · 847 tickets reviewed</span>
+          </div>
+        </div>
+
+        {/* Trend: false-resolution rate */}
+        <div className="bg-white rounded-xl border border-black/[0.07] shadow-[0_1px_4px_rgba(0,0,0,0.04)] p-5">
+          <div className="flex items-start justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-[13px] font-bold text-[#1A1D2E]">False-resolution rate</h2>
+              <p className="text-[11px] text-[#9CA3AF] mt-px">Share of resolved tickets that were actually unresolved</p>
+            </div>
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-[5px] rounded-full">
+              <TrendingUp className="w-[10px] h-[10px] text-emerald-600" />
+              <span className="text-[11px] font-bold text-emerald-600">−49% in 3 weeks</span>
+            </div>
+          </div>
+          <div className="h-[150px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={RESOLUTION_TREND} margin={{ top: 4, right: 8, left: -22, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="reportTrendFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#10B981" stopOpacity={0.18} />
+                    <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F3F8" vertical={false} />
+                <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: "#9CA3AF" }} axisLine={false} tickLine={false} domain={[0, 14]} unit="%" />
+                <Tooltip
+                  contentStyle={{ borderRadius: 10, border: "1px solid #E8EAED", boxShadow: "0 4px 16px rgba(0,0,0,0.08)", fontSize: 12 }}
+                  formatter={(v: number) => [`${v}%`, "False-resolution rate"]}
+                />
+                <Area type="monotone" dataKey="rate" stroke="#10B981" strokeWidth={2.5} fill="url(#reportTrendFill)" dot={{ r: 4, fill: "#10B981", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 5 }} />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -897,6 +1132,61 @@ function LandingFeatures() {
   );
 }
 
+// ── Landing: Architecture ─────────────────────────────────────────────────────
+
+function LandingArchitecture() {
+  const stages = [
+    { Icon: GitBranch, color: "#F59E0B", bg: "#FFFBEB", title: "Freshservice",        sub: "MCP connector ingest",
+      desc: "Resolved tickets stream in continuously via the Freshservice MCP connector — conversations, timings, and resolution notes." },
+    { Icon: Bot,       color: "#4F6AF5", bg: "#EEF1FF", title: "Second Read agents",   sub: "4-agent audit loop",
+      desc: "Verifier, Pattern, Sentiment and Timing agents re-read every closure in parallel and vote on whether it should have closed." },
+    { Icon: BarChart3, color: "#7C5CFC", bg: "#F3EEFF", title: "Manager report",       sub: "Weekly briefing + flags",
+      desc: "Confirmed flags flow back to Freshservice with one-click reopen, and managers get a weekly briefing with cost impact." },
+  ];
+
+  return (
+    <section className="bg-white py-24 px-6 border-t border-black/[0.05]">
+      <div className="max-w-[1000px] mx-auto">
+        <div className="text-center mb-16">
+          <span className="text-[11px] font-bold text-[#4F6AF5] uppercase tracking-[0.16em] mb-3 block">Architecture</span>
+          <h2 className="text-[34px] font-bold text-[#1A1D2E] leading-tight mb-4">Sits on top of the stack you already have.</h2>
+          <p className="text-[16px] text-[#6B7280] max-w-[480px] mx-auto leading-relaxed">
+            No new dashboard for your agents to live in. Second Read plugs into Freshservice and reports back where your team already works.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-3 gap-5 items-stretch">
+          {stages.map(({ Icon, color, bg, title, sub, desc }, i) => (
+            <div key={title} className="relative">
+              <div className="h-full bg-[#F8F9FB] rounded-2xl p-6 border border-black/[0.06] hover:border-black/[0.10] hover:shadow-[0_4px_20px_rgba(0,0,0,0.07)] transition-all duration-200">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-[40px] h-[40px] rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: bg }}>
+                    <Icon className="w-5 h-5" style={{ color }} />
+                  </div>
+                  <div className="text-[10px] font-bold text-[#C4C8D4]">STEP {i + 1}</div>
+                </div>
+                <div className="text-[15px] font-bold text-[#1A1D2E] mb-0.5">{title}</div>
+                <div className="text-[12px] font-semibold mb-3" style={{ color }}>{sub}</div>
+                <p className="text-[13px] text-[#6B7280] leading-relaxed">{desc}</p>
+              </div>
+              {i < stages.length - 1 && (
+                <div className="absolute top-1/2 -right-[14px] -translate-y-1/2 z-10 w-[26px] h-[26px] rounded-full bg-white border border-black/[0.08] shadow-[0_2px_8px_rgba(0,0,0,0.10)] flex items-center justify-center">
+                  <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-10 flex items-center justify-center gap-2.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#4F6AF5]" style={{ boxShadow: "0 0 6px #4F6AF5" }} />
+          <span className="text-[12px] text-[#9CA3AF]">Orchestrated via <span className="font-semibold text-[#4F6AF5]">Freshworks Agent Studio</span> · deployed as a background service, not a UI add-on</span>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Landing: Stats ────────────────────────────────────────────────────────────
 
 function LandingStats() {
@@ -954,6 +1244,7 @@ function LandingPage({ onEnterApp }: { onEnterApp: () => void }) {
       <LandingNav onEnterApp={onEnterApp} />
       <LandingHero onEnterApp={onEnterApp} />
       <LandingFeatures />
+      <LandingArchitecture />
       <LandingStats />
       <LandingFooter />
     </div>
@@ -974,6 +1265,7 @@ export default function App() {
           <TopBar screen={screen} onBack={() => setMode("landing")} />
           <main className="flex-1 overflow-hidden">
             {screen === "dashboard" && <DashboardScreen setScreen={setScreen} />}
+            {screen === "impact"    && <ImpactScreen />}
             {screen === "cluster"   && <ClusterMapScreen />}
             {screen === "detail"    && <TicketDetailScreen />}
             {screen === "reports"   && <ReportsScreen setScreen={setScreen} />}
